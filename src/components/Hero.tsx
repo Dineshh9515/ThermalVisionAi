@@ -28,7 +28,7 @@ export const Hero = () => {
             <Button
               size="lg"
               className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow"
-              onClick={() => navigate("/detect")}
+              onClick={() => navigate("/login")}
             >
               Start Detection
               <ArrowRight className="ml-2 h-5 w-5" />
