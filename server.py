@@ -26,14 +26,21 @@ except Exception as e:
 app = Flask(__name__)
 
 # Configure CORS to accept requests from Render frontend
+# More explicit configuration for better compatibility
 cors_config = {
     "origins": [
         "http://localhost:3000",
         "http://localhost:8080",
+        "http://localhost:5173",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8080",
-        "https://*.onrender.com"  # Allow all Render domains
-    ]
+        "http://127.0.0.1:5173",
+        "https://thermalvisionai-2.onrender.com",
+        "https://thermalvisionai-1.onrender.com",
+    ],
+    "methods": ["GET", "POST", "OPTIONS"],
+    "allow_headers": ["Content-Type", "Authorization"],
+    "supports_credentials": True
 }
 CORS(app, resources={r"/*": cors_config})
 
@@ -185,51 +192,78 @@ def health():
         'model_mode': model_wrapper.mode if model_wrapper else 'none'
     })
 
-@app.route('/detect', methods=['POST'])
+@app.route('/detect', methods=['POST', 'OPTIONS'])
 def detect():
     """
     Main detection endpoint
     Accepts image file or base64 image data
     Returns detections with input and output images
     """
+    # Handle preflight requests
+    if request.method == 'OPTIONS':
+        return '', 204
+    
     try:
+        print("\n=== Detection Request Started ===")
+        print(f"Request method: {request.method}")
+        print(f"Request content type: {request.content_type}")
+        
         # Get image from request
         image = None
         
         # Try to get from files first
         if 'image' in request.files:
+            print("Found image in files")
             image = process_image(request.files['image'])
         # Try from form data (base64)
         elif 'image' in request.form:
+            print("Found image in form data")
             image = process_image(request.form['image'])
         # Try from JSON (base64)
         elif request.is_json:
             data = request.get_json()
             if 'image' in data:
+                print("Found image in JSON")
                 image = process_image(data['image'])
         
         if image is None:
-            return jsonify({'error': 'No image provided'}), 400
+            print("ERROR: No image provided in request")
+            return jsonify({'success': False, 'error': 'No image provided'}), 400
         
-        print(f"Received image shape: {image.shape}")
+        print(f"Image received. Shape: {image.shape}, dtype: {image.dtype}")
+        
+        # Check if model is loaded
+        if model_wrapper is None:
+            print("ERROR: Model not initialized! Attempting to initialize...")
+            init_model()
+            if model_wrapper is None:
+                print("CRITICAL: Model initialization failed!")
+                return jsonify({'success': False, 'error': 'Model failed to initialize'}), 500
+        
+        print(f"Model loaded. Mode: {model_wrapper.mode}")
         
         # Preprocess the image
+        print("Preprocessing image...")
         preprocessed = preprocess_thermal_image(image)
+        print(f"Preprocessed image shape: {preprocessed.shape}")
         
         # Get detections from model
-        if model_wrapper is not None:
-            detections = model_wrapper.predict(preprocessed)
-        else:
-            return jsonify({'error': 'Model not initialized'}), 500
-        
-        print(f"Found {len(detections)} detections")
+        print("Running detection...")
+        detections = model_wrapper.predict(preprocessed)
+        print(f"Detection complete. Found {len(detections)} objects")
         
         # Draw detections on image
+        print("Drawing detections on image...")
         output_image = draw_detections(image, detections)
         
         # Encode images to base64
+        print("Encoding images...")
         input_image_b64 = encode_image_to_base64(image)
         output_image_b64 = encode_image_to_base64(output_image)
+        
+        if not input_image_b64 or not output_image_b64:
+            print("ERROR: Failed to encode images")
+            return jsonify({'success': False, 'error': 'Failed to encode images'}), 500
         
         # Format detections for response
         formatted_detections = []
@@ -249,6 +283,9 @@ def detect():
                 'temperature': 'hot' if det['score'] > 0.7 else 'warm'
             })
         
+        print(f"Detection response prepared with {len(formatted_detections)} detections")
+        print("=== Detection Request Complete ===\n")
+        
         return jsonify({
             'success': True,
             'input_image': input_image_b64,
@@ -259,11 +296,16 @@ def detect():
         })
     
     except Exception as e:
-        print(f"Error in detection: {e}")
+        print(f"\n!!! ERROR in detection endpoint !!!")
+        print(f"Error type: {type(e).__name__}")
+        print(f"Error message: {str(e)}")
         traceback.print_exc()
+        print("!!! End Error !!!\n")
+        
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'error_type': type(e).__name__
         }), 500
 
 @app.route('/model-info', methods=['GET'])
