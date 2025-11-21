@@ -24,7 +24,18 @@ except Exception as e:
     HAS_MODEL_WRAPPER = False
 
 app = Flask(__name__)
-CORS(app)
+
+# Configure CORS to accept requests from Render frontend
+cors_config = {
+    "origins": [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+        "https://*.onrender.com"  # Allow all Render domains
+    ]
+}
+CORS(app, resources={r"/*": cors_config})
 
 # Initialize model
 model_wrapper = None
