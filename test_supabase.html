@@ -1,0 +1,60 @@
+<!-- Test Supabase Connection -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supabase Test</title>
+</head>
+<body>
+    <h1>Supabase Connection Test</h1>
+    <div id="result"></div>
+    <div id="error"></div>
+    
+    <script type="module">
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+        
+        const SUPABASE_URL = 'https://cajemieaeqkynlxkzkjw.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhamVtaWVhZXFreW5seGt6a2p3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MzI2ODAsImV4cCI6MjA3OTMwODY4MH0.nSrcFRGqiodYjTPOWRhtnxT1CiNu7sfP2EQabLIcgt8';
+        
+        try {
+            const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+            
+            document.getElementById('result').innerHTML = `
+                <h2>✅ Supabase Client Created</h2>
+                <p>URL: ${SUPABASE_URL}</p>
+                <p>Key: ${SUPABASE_KEY.substring(0, 50)}...</p>
+                <button onclick="testSignUp()">Test Sign Up</button>
+                <button onclick="testSession()">Test Session</button>
+            `;
+            
+            window.testSignUp = async () => {
+                try {
+                    const { data, error } = await supabase.auth.signUp({
+                        email: 'test@example.com',
+                        password: 'Test123456!'
+                    });
+                    if (error) {
+                        throw error;
+                    }
+                    document.getElementById('result').innerHTML += '<p>✅ Sign up request successful</p>';
+                } catch (err) {
+                    document.getElementById('error').innerHTML = '<p style="color:red">❌ Error: ' + err.message + '</p>';
+                }
+            };
+            
+            window.testSession = async () => {
+                try {
+                    const { data, error } = await supabase.auth.getSession();
+                    if (error) {
+                        throw error;
+                    }
+                    document.getElementById('result').innerHTML += '<p>✅ Session check successful: ' + (data.session ? 'Logged in' : 'Not logged in') + '</p>';
+                } catch (err) {
+                    document.getElementById('error').innerHTML = '<p style="color:red">❌ Error: ' + err.message + '</p>';
+                }
+            };
+        } catch (err) {
+            document.getElementById('error').innerHTML = '<p style="color:red">❌ Error: ' + err.message + '</p>';
+        }
+    </script>
+</body>
+</html>
